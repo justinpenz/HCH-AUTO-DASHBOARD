@@ -1,0 +1,35 @@
+"0","library(openxlsx)"
+"2","package ‘openxlsx’ was built under R version 3.2.5"
+"0","library(dplyr)"
+"2","package ‘dplyr’ was built under R version 3.2.5"
+"2","
+Attaching package: ‘dplyr’
+
+"
+"2","The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+"
+"2","The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+"
+"0","library(tidyr)"
+"2","package ‘tidyr’ was built under R version 3.2.5"
+"0","library(lubridate)"
+"2","package ‘lubridate’ was built under R version 3.2.5"
+"2","Note: the specification for S3 class “difftime” in package ‘lubridate’ seems equivalent to one from package ‘DBI’: not turning on duplicate class definitions for this class.
+"
+"2","
+Attaching package: ‘lubridate’
+
+"
+"2","The following object is masked from ‘package:base’:
+
+    date
+
+"
+"0","library(stringr)"
+"2","package ‘stringr’ was built under R version 3.2.5"

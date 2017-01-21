@@ -1,0 +1,21 @@
+{
+    "collab_server" : "",
+    "contents" : "---\ntitle: \"Untitled\"\nauthor: \"Justin Penzenstadler\"\ndate: \"January 18, 2017\"\noutput: html_document\n---\nset up \n```{r setup, include=FALSE}\nlibrary(openxlsx)\nlibrary(dplyr)\nlibrary(tidyr) \nlibrary(lubridate)\nlibrary(stringr)\n```\ninputs(running talley)\n```{r}\nxlsx_location = 'HCGH TO December 2016.xlsx'\n#selected_drugs = ]\n#groups\n#selected_times\n\n```\n\nopening df\n```{r}\n#xlsx_location = 'HCGH TO December 2016.xlsx'\n\ndf <- read.xlsx(xlsx_location) %>%\n  mutate(Week = gsub('Week ', '', Week)) %>%          ##make Week numeric\n  separate(Week, c('Week', 'Year'), ', ') %>%         ##separate Week/Year into different columns \n  mutate(Week = str_pad(Week, 2, pad = '0')) %>%       ##Pad Week so that it is always 2 digits\n  mutate(Date = as.numeric(paste(1,paste(Year, Week, sep = ''), sep = ''))) %>%  ##add a day (aka u in lubridate) for each date.  it is a bug.\n  mutate(Date = parse_date_time(as.character(Date), orders = \"uYW\")) %>% \n  mutate(Month = month(Date)) %>% \n  mutate(Group = NA)\n```\nselect drugs\n```{r}\ndrug_list = unique(df$Generic.Name)\nselected_drugs = drug_list[1:3]  ### should set to null later \nselected_drugs_list = as.list(selected_drugs) \nnames(selected_drugs_list) = selected_drugs\n```\ngenerate groups \n```{r}\ngroups <- list(ABX = c('POTASSIUM CHLORIDE', 'HYDROMORPHONE HCL'), NEO = c('ENOXAPARIN SODIUM' ,'ACETAMINOPHEN'))\n\ngroups <- append(groups, selected_drugs_list)\n \n\nfor(n in names(groups)){\n  group_name = n\n  group_drugs = groups[[n]]\n  df$Group = ifelse(df$Generic.Name %in% group_drugs, n, df$Group)\n}\n```\n\n\n\nselect time frames\n```{r}\ntime_range = list(min = min(df$Date, na.rm = T), \n               max = max(df$Date, na.rm = T)) \n\nselected_times = time_range\n\nTimeframe_1 = list(min = '2016-12-05 UTC', max = '2016-12-12 UTC')\n  \nTimeframe_2 = list(min = '2016-12-12 UTC', max = '2016-12-19 UTC')\n  \n```\n\nfilter df for selected parameters \n```{r} \n\nworking_df <- df %>% filter(Date >= time_range$min & Date < time_range$max) %>%\n  filter(!is.na(Group))\n```\n\n\ngenerate chart with monthly info and custom timeframes\n```{r}\n\ntotals_by_month <- working_df %>% group_by(Group, Month) %>% summarize(sum = sum(Total.Spend, na.rm = T))\n\nTimeframe_1_totals <- working_df %>% \n  filter(Date >= Timeframe_1$min & Date < Timeframe_1$max) %>% \n  group_by(Group) %>% \n  summarize(Total_Timeframe_1 = sum(Total.Spend))\n\nTimeframe_2_totals <- working_df %>% \n  filter(Date >= Timeframe_1$min & Date < Timeframe_2$max) %>% \n  group_by(Group) %>% \n  summarize(Total_Timeframe_2 = sum(Total.Spend))\n\ntable <- full_join(totals_by_month, Timeframe_1_totals, by = \"Group\") %>% \n  full_join(Timeframe_2_totals, by ='Group') %>% \n  \n\n```\n\n\nrename columns (work in progress)\n```{r}\n\nComp2_dt_header = paste('Total_for_Range', as.character(comparator1$min), 'to', as.character(comparator1$max), sep = '_')\n```\n",
+    "created" : 1484968705812.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "1217421015",
+    "id" : "324DFC3E",
+    "lastKnownWriteTime" : 1484934364,
+    "last_content_update" : 1484934364,
+    "path" : "C:/Users/Grace/Desktop/HC Germantown/Dashboard auto/working Document.Rmd",
+    "project_path" : "working Document.Rmd",
+    "properties" : {
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 2,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_markdown"
+}

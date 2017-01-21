@@ -1,0 +1,107 @@
+---
+title: "Untitled"
+author: "Justin Penzenstadler"
+date: "January 18, 2017"
+output: html_document
+---
+set up 
+```{r setup, include=FALSE}
+library(openxlsx)
+library(dplyr)
+library(tidyr) 
+library(lubridate)
+library(stringr)
+```
+inputs(running talley)
+```{r}
+xlsx_location = 'HCGH TO December 2016.xlsx'
+#selected_drugs = ]
+#groups
+#selected_times
+
+```
+
+opening df
+```{r}
+#xlsx_location = 'HCGH TO December 2016.xlsx'
+
+df <- read.xlsx(xlsx_location) %>%
+  mutate(Week = gsub('Week ', '', Week)) %>%          ##make Week numeric
+  separate(Week, c('Week', 'Year'), ', ') %>%         ##separate Week/Year into different columns 
+  mutate(Week = str_pad(Week, 2, pad = '0')) %>%       ##Pad Week so that it is always 2 digits
+  mutate(Date = as.numeric(paste(1,paste(Year, Week, sep = ''), sep = ''))) %>%  ##add a day (aka u in lubridate) for each date.  it is a bug.
+  mutate(Date = parse_date_time(as.character(Date), orders = "uYW")) %>% 
+  mutate(Month = month(Date)) %>% 
+  mutate(Group = NA)
+```
+select drugs
+```{r}
+drug_list = unique(df$Generic.Name)
+selected_drugs = drug_list[1:3]  ### should set to null later 
+selected_drugs_list = as.list(selected_drugs) 
+names(selected_drugs_list) = selected_drugs
+```
+generate groups 
+```{r}
+groups <- list(ABX = c('POTASSIUM CHLORIDE', 'HYDROMORPHONE HCL'), NEO = c('ENOXAPARIN SODIUM' ,'ACETAMINOPHEN'))
+
+groups <- append(groups, selected_drugs_list)
+ 
+
+for(n in names(groups)){
+  group_name = n
+  group_drugs = groups[[n]]
+  df$Group = ifelse(df$Generic.Name %in% group_drugs, n, df$Group)
+}
+```
+
+
+
+select time frames
+```{r}
+time_range = list(min = min(df$Date, na.rm = T), 
+               max = max(df$Date, na.rm = T)) 
+
+selected_times = time_range
+
+Timeframe_1 = list(min = '2016-12-05 UTC', max = '2016-12-12 UTC')
+  
+Timeframe_2 = list(min = '2016-12-12 UTC', max = '2016-12-19 UTC')
+  
+```
+
+filter df for selected parameters 
+```{r} 
+
+working_df <- df %>% filter(Date >= time_range$min & Date < time_range$max) %>%
+  filter(!is.na(Group))
+```
+
+
+generate chart with monthly info and custom timeframes
+```{r}
+
+totals_by_month <- working_df %>% group_by(Group, Month) %>% summarize(sum = sum(Total.Spend, na.rm = T))
+
+Timeframe_1_totals <- working_df %>% 
+  filter(Date >= Timeframe_1$min & Date < Timeframe_1$max) %>% 
+  group_by(Group) %>% 
+  summarize(Total_Timeframe_1 = sum(Total.Spend))
+
+Timeframe_2_totals <- working_df %>% 
+  filter(Date >= Timeframe_1$min & Date < Timeframe_2$max) %>% 
+  group_by(Group) %>% 
+  summarize(Total_Timeframe_2 = sum(Total.Spend))
+
+table <- full_join(totals_by_month, Timeframe_1_totals, by = "Group") %>% 
+  full_join(Timeframe_2_totals, by ='Group') %>% 
+  
+
+```
+
+
+rename columns (work in progress)
+```{r}
+
+Comp2_dt_header = paste('Total_for_Range', as.character(comparator1$min), 'to', as.character(comparator1$max), sep = '_')
+```

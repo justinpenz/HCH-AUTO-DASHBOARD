@@ -7,6 +7,12 @@ output: html_document
 
 ```{r}
 library(shiny)
+library(tidyr)
+library(ggplot2)
+library(openxlsx)
+library(dplyr)
+library(lubridate)
+library(stringr)
 ```
 
 
@@ -16,19 +22,23 @@ ui<- fluidPage(
     titlePanel("TO Auto-builder"),
     sidebarLayout(
       sidebarPanel(
-        fileInput('SOURCE', label = h3("File input")),
+        fileInput('file', label = h3("File input")),
         uiOutput('selectDrugs'),
+        textInput('group_name', 'Group Name - No Spaces', 'Add Group Name Here'),
+        actionButton('pushgrp',"PUSH TO ADD TO GROUP"),
+        actionButton('pushsingle',"PUSH TO ADD ALL AS SINGLE"),
         uiOutput('selectRange'),
         dateRangeInput('dateRange0',
         label = 'Select Total Timeframe',
-        start = Sys.Date() - 2, end = Sys.Date() + 2, separator = 'to'),
+        start = Sys.Date() - 365, end = Sys.Date() + 365, separator = 'to'),
         dateRangeInput('dateRange1',
         label = 'Select Comparator Timeframe 1',
         start = Sys.Date() - 2, end = Sys.Date() + 2, separator = 'to'),
         dateRangeInput('dateRange2',
         label = 'Select Comparator Timeframe 2',
         start = Sys.Date() - 2, end = Sys.Date() + 2, separator = 'to')),
-      mainPanel(tableOutput("table2")
+      mainPanel(tableOutput("table2"),
+                plotOutput('summaryTable')
       )
     )
   )
@@ -39,81 +49,136 @@ ui<- fluidPage(
 ```{r}
   ##' SERVER ###########################################
 server<-function(input, output) {
+  
+  Dataset <- reactive({
+    if (is.null(input$file)) {
+      # User has not uploaded a file yet
+      return(data.frame())
+    }
     
-     
-    output$selectDrugs <- renderUI({
-        drug_list = unique(df$Generic.Name)
-        checkboxGroupInput('selected_drugs_list', 'Choose Drugs', drug_list)
-    })
-    
-    output$selectRange <- renderUI({
-        string = paste('The Data Uploaded Contains Dates', as.character(time_range$min), as.character(time_range$max))
-        p(string)
-    })
-    
-    output$table2 <- renderTable({
-
-            inFile <- input$SOURCE
-           
-           if (is.null(inFile))
-            return(NULL)
-          
-           df <- read.xlsx(xlsx_location) %>%
+    Dataset <- read.xlsx(input$file$datapath) %>%
               mutate(Week = gsub('Week ', '', Week)) %>%          ##make Week numeric
               separate(Week, c('Week', 'Year'), ', ') %>%         ##separate Week/Year into different columns 
               mutate(Week = str_pad(Week, 2, pad = '0')) %>%       ##Pad Week so that it is always 2 digits
               mutate(Date = as.numeric(paste(1,paste(Year, Week, sep = ''), sep = ''))) %>%  ##add a day (aka u in lubridate) for each date.  it is a bug.
               mutate(Date = parse_date_time(as.character(Date), orders = "uYW")) %>% 
               mutate(Month = month(Date)) %>% 
-              mutate(Group = NA)
-                        
-            selected_drugs_list = input$selected_drugs_list 
-            names(selected_drugs_list) = input$selected_drugs_list
-                
-            for(n in names(selected_drugs_list)){
+              mutate(Group = NA) %>%
+              as.data.frame()
+    return(Dataset)
+  })  
+  
+  output$selectDrugs <- renderUI({
+        input$pushgrp 
+        drug_list = unique(Dataset()$Generic.Name)
+        checkboxGroupInput('selected_drugs_list', 'Choose Drugs', drug_list)
+    })
+    
+  output$selectRange <- renderUI({
+        time_range = list(min = min(Dataset()$Date, na.rm = T), 
+               max = max(Dataset()$Date, na.rm = T)) 
+        string = paste('The Data Uploaded Contains Dates', as.character(time_range$min), as.character(time_range$max))
+        p(string)
+    })
+  
+#creation of groups ############### in progress
+ 
+ values <- reactiveValues(df_data = NULL)
+
+  observeEvent(input$pushgrp, {
+    temp = list(input$selected_drugs_list)
+    names(temp) <- eval(input$group_name)
+    values$df_data <- c(values$df_data,temp)
+
+  })
+  
+  observeEvent(input$pushsingle, {
+    temp = as.list(input$selected_drugs_list)
+    names(temp) <- c(input$selected_drugs_list)
+    values$df_data <- c(values$df_data,temp)
+
+  })
+
+output$table10 <- renderDataTable({as.data.frame(values$df_data)})
+  
+
+#############
+
+  
+  
+##this makes the main output with totals and monthly per group/drug
+  output$table2 <- renderTable({
+
+        df <- Dataset()
+              ##below assigns each group/single in a named list as a item in df$group.
+        for(n in names(values$df_data)){
                group_name = n
-               group_drugs = groups[[n]]
+               group_drugs = values$df_data[[n]]
                df$Group = ifelse(df$Generic.Name %in% group_drugs, n, df$Group)
-                }
-      
-      
-            
+        }
+        
+
             daterange0 <- as.list(unlist(strsplit(as.character(input$dateRange0), 'to')))
-      
             names(daterange0) <- c('min', 'max')
             
             daterange1 <- as.list(unlist(strsplit(as.character(input$dateRange1), 'to')))
             names(daterange1) <- c('min', 'max')
             
-            
             daterange2 <- as.list(unlist(strsplit(as.character(input$dateRange2), 'to')))
             names(daterange2) <- c('min', 'max')
             
-        
-            working_df <- df %>% filter(Date >= daterange0$min & Date < daterange0$max) %>%
+            
+          working_df <- df %>% 
+            filter(ymd(Date) >= ymd(daterange0$min) & ymd(Date) < ymd(daterange0$max)) %>%
                 filter(!is.na(Group))
+          
+          
+            totals_by_month <- working_df %>% 
+              group_by(Group, Month) %>% 
+              summarize(sum = sum(Total.Spend, na.rm = T))
         
-            totals_by_month <- working_df %>% group_by(Group, Month) %>% summarize(sum = sum(Total.Spend, na.rm = T))
-        
-            Timeframe_1_totals <- working_df %>% 
-                filter(Date >= daterange1$min & Date < daterange1$max) %>% 
-                group_by(Group) %>% 
-                summarize(Total_Timeframe_1 = sum(Total.Spend))
+            totals_by_Timeframe1 <- working_df %>% 
+              filter(ymd(Date) >= ymd(daterange1$min) & ymd(Date) < ymd(daterange1$max))%>%
+              group_by(Group) %>% summarize(Timeframe1 = sum(Total.Spend, na.rm = T))
             
-            Timeframe_2_totals <- working_df %>% 
-                filter(Date >= daterange2$min & Date < daterange2$max) %>% 
-                group_by(Group) %>% 
-                summarize(Total_Timeframe_2 = sum(Total.Spend))
+            totals_by_Timeframe2 <- working_df %>% 
+              filter(ymd(Date) >= ymd(daterange2$min) & ymd(Date) < ymd(daterange2$max))%>%
+              group_by(Group) %>% summarize(Timeframe2 = sum(Total.Spend, na.rm = T))
             
-            table <- full_join(totals_by_month, Timeframe_1_totals, by = "Group") %>% 
-              full_join(Timeframe_2_totals, by ='Group') 
+             table <- full_join(totals_by_month, totals_by_Timeframe1, by = "Group") %>% 
+              full_join(totals_by_Timeframe2, by ='Group') %>% 
+               mutate(Month = month.abb[Month]) %>%
+               spread(Month, sum)
+           
             table
             
+
   })
+  
+  
+  
+  output$summaryTable <- renderPlot({
+    
+    daterange0 <- as.list(unlist(strsplit(as.character(input$dateRange0), 'to')))
+    names(daterange0) <- c('min', 'max')
+    
+    df <- Dataset()
+    df <- df %>% 
+      filter(ymd(Date) >= ymd(daterange0$min) & ymd(Date) < ymd(daterange0$max)) %>%
+      group_by(Generic.Name) %>% 
+      summarize(Total_spend = sum(Total.Spend)) %>% 
+      top_n(20, Total_spend)
+    
+    ggplot(df) + geom_bar(aes(x = reorder(Generic.Name, Total_spend), y = Total_spend), stat = 'identity') + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+    
+    })
+  
+  
+  
 }
 
 ```
-  ##' Run the shiny app
+
 ```{r}
 
 
@@ -121,6 +186,129 @@ server<-function(input, output) {
 
 
 shinyApp(ui = ui, server = server)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ```
 

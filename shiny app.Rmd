@@ -19,31 +19,34 @@ library(stringr)
 
 ```{r}
 ui<- fluidPage(
-    titlePanel("TO Auto-builder"),
-    sidebarLayout(
-      sidebarPanel(
-        fileInput('file', label = h3("File input")),
-        uiOutput('selectDrugs'),
-        textInput('group_name', 'Group Name - No Spaces', 'Add Group Name Here'),
-        actionButton('pushgrp',"PUSH TO ADD TO GROUP"),
-        actionButton('pushsingle',"PUSH TO ADD ALL AS SINGLE"),
-        uiOutput('selectRange'),
-        dateRangeInput('dateRange0',
-        label = 'Select Total Timeframe',
-        start = Sys.Date() - 365, end = Sys.Date() + 365, separator = 'to'),
-        dateRangeInput('dateRange1',
-        label = 'Select Comparator Timeframe 1',
-        start = Sys.Date() - 2, end = Sys.Date() + 2, separator = 'to'),
-        dateRangeInput('dateRange2',
-        label = 'Select Comparator Timeframe 2',
-        start = Sys.Date() - 2, end = Sys.Date() + 2, separator = 'to')),
-      mainPanel(tableOutput("table2"),
-                plotOutput('summaryTable'),
-      width = 6
-      )
-    )
+    tabsetPanel(
+      tabPanel('BUILD',
+        titlePanel("TO Auto-builder"),
+        sidebarLayout(
+          sidebarPanel(
+            fileInput('file', label = h3("File input")),
+            uiOutput('selectDrugs'),
+            textInput('group_name', 'Group Name - No Spaces', 'Add Group Name Here'),
+            actionButton('pushgrp',"PUSH TO ADD TO GROUP"),
+            actionButton('pushsingle',"PUSH TO ADD ALL AS SINGLE"),
+            uiOutput('selectRange'),
+            dateRangeInput('dateRange0',
+            label = 'Select Total Timeframe',
+            start = Sys.Date() - 365, end = Sys.Date() + 365, separator = 'to'),
+            dateRangeInput('dateRange1',
+            label = 'Select Comparator Timeframe 1',
+            start = Sys.Date() - 2, end = Sys.Date() + 2, separator = 'to'),
+            dateRangeInput('dateRange2',
+            label = 'Select Comparator Timeframe 2',
+            start = Sys.Date() - 2, end = Sys.Date() + 2, separator = 'to')),
+          mainPanel(tableOutput("table2"),
+                    plotOutput('summaryTable'),
+          width = 6
+         ))
+       ),
+    tabPanel('PLOTS', titlePanel("TO Auto-builder"))
   )
-  
+)  
 ```
 
 

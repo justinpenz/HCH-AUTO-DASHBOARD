@@ -38,7 +38,8 @@ ui<- fluidPage(
         label = 'Select Comparator Timeframe 2',
         start = Sys.Date() - 2, end = Sys.Date() + 2, separator = 'to')),
       mainPanel(tableOutput("table2"),
-                plotOutput('summaryTable')
+                plotOutput('summaryTable'),
+      width = 6
       )
     )
   )
@@ -71,7 +72,7 @@ server<-function(input, output) {
   output$selectDrugs <- renderUI({
         input$pushgrp 
         drug_list = unique(Dataset()$Generic.Name)
-        checkboxGroupInput('selected_drugs_list', 'Choose Drugs', drug_list)
+        checkboxGroupInput('selected_drugs_list', 'Choose Drugs', sort(drug_list), inline = TRUE)
     })
     
   output$selectRange <- renderUI({
@@ -180,140 +181,5 @@ output$table10 <- renderDataTable({as.data.frame(values$df_data)})
 ```
 
 ```{r}
-
-
-
-
-
 shinyApp(ui = ui, server = server)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ```
-
-
-
-
-
-

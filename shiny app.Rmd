@@ -57,6 +57,9 @@ ui<- fluidPage(
 ```{r}
 server<-function(input, output) {
   
+##############################################TAB ONE #######################################################  
+
+########################MAIN DATASET FROM UPLOAD############################    
   Dataset <- reactive({
     if (is.null(input$file)) {
       # User has not uploaded a file yet
@@ -75,6 +78,8 @@ server<-function(input, output) {
     return(Dataset)
   })  
   
+  #############################REACTIVE UI ELEMENTS###########################
+  
   output$selectDrugs <- renderUI({
         input$pushgrp 
         drug_list = unique(Dataset()$Generic.Name)
@@ -88,9 +93,11 @@ server<-function(input, output) {
         p(string)
     })
   
-  values <- reactiveValues(df_data = NULL)
+  ###########################BUILDING OF GROUPINGS OF DRUGS######################
+  
+  values <- reactiveValues(df_data = NULL)   #INITIALIZE GROUP. VALUES IS THE GROUP DF
 
-  observeEvent(input$pushgrp, {
+  observeEvent(input$pushgrp, {              #IF MAKE GROUP BUTTON IS PUSHED, ADD CURRENT SELECTED DRUGS AS grouped item to values 
     temp = list(input$selected_drugs_list)
     names(temp) <- eval(input$group_name)
     values$df_data <- c(values$df_data,temp)
@@ -104,10 +111,10 @@ server<-function(input, output) {
 
   })
 
-output$table10 <- renderDataTable({as.data.frame(values$df_data)})
+output$table10 <- renderDataTable({as.data.frame(values$df_data)})   #kill this maybe for final development version? 
 
 
-##this makes the main output with totals and monthly per group/drug
+#################this makes the main output with totals and monthly per group/drug#####################################
   output$table2 <- renderTable({
 
         df <- Dataset()
@@ -149,7 +156,8 @@ output$table10 <- renderDataTable({as.data.frame(values$df_data)})
              table <- full_join(totals_by_month, totals_by_Timeframe1, by = "Group") %>% 
               full_join(totals_by_Timeframe2, by ='Group') %>% 
                mutate(Month = month.abb[Month]) %>%
-               spread(Month, sum)
+               spread(Month, sum) %>%
+               mutate(Percent_Change = (Timeframe2 - Timeframe1) * 100 /Timeframe2)
            
             table
             
@@ -192,7 +200,7 @@ output$table10 <- renderDataTable({as.data.frame(values$df_data)})
       filter(Generic.Name == input$plotDrug)
     
     try(ggplot(df) + geom_smooth(aes(x = Date, y = Total.Spend)))
-    ggplot(df) + geom_point(aes(x = Date, y = Total.Spend))
+    ggplot(df) + geom_point(aes(x = Date, y = Total.Spend, color = Generic.Name))
     })
   
   

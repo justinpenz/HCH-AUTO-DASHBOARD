@@ -44,14 +44,17 @@ ui<- fluidPage(
           width = 6
          ))
        ),
-    tabPanel('PLOTS', titlePanel("TO Auto-builder"))
+    tabPanel('PLOTS', 
+        titlePanel("LOESS Spending Curves"),
+        p('This will output spending trends for a single selected drug over the selected Total Timeframe'),
+        uiOutput('selectdrugPlot'),
+        plotOutput('drugPlot'))
   )
 )  
 ```
 
 
 ```{r}
-  ##' SERVER ###########################################
 server<-function(input, output) {
   
   Dataset <- reactive({
@@ -85,9 +88,7 @@ server<-function(input, output) {
         p(string)
     })
   
-#creation of groups ############### in progress
- 
- values <- reactiveValues(df_data = NULL)
+  values <- reactiveValues(df_data = NULL)
 
   observeEvent(input$pushgrp, {
     temp = list(input$selected_drugs_list)
@@ -104,12 +105,8 @@ server<-function(input, output) {
   })
 
 output$table10 <- renderDataTable({as.data.frame(values$df_data)})
-  
 
-#############
 
-  
-  
 ##this makes the main output with totals and monthly per group/drug
   output$table2 <- renderTable({
 
@@ -176,6 +173,31 @@ output$table10 <- renderDataTable({as.data.frame(values$df_data)})
     ggplot(df) + geom_bar(aes(x = reorder(Generic.Name, Total_spend), y = Total_spend), stat = 'identity') + theme(axis.text.x = element_text(angle = 90, hjust = 1))
     
     })
+  
+
+######################################################TAB TWO #############################################################
+  output$selectdrugPlot <- renderUI({
+        drug_list = unique(Dataset()$Generic.Name)
+        checkboxGroupInput('plotDrug', 'Choose Drug to Plot', sort(drug_list))
+    })
+  
+  output$drugPlot <- renderPlot({
+    
+    daterange0 <- as.list(unlist(strsplit(as.character(input$dateRange0), 'to')))
+    names(daterange0) <- c('min', 'max')
+    
+    df <- Dataset()
+    df <- df %>% 
+      filter(ymd(Date) >= ymd(daterange0$min) & ymd(Date) < ymd(daterange0$max)) %>%
+      filter(Generic.Name == input$plotDrug)
+    
+    try(ggplot(df) + geom_smooth(aes(x = Date, y = Total.Spend)))
+    ggplot(df) + geom_point(aes(x = Date, y = Total.Spend))
+    })
+  
+  
+  
+  
   
   
   

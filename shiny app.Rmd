@@ -83,7 +83,7 @@ server<-function(input, output) {
   output$selectDrugs <- renderUI({
         input$pushgrp 
         drug_list = unique(Dataset()$Generic.Name)
-        checkboxGroupInput('selected_drugs_list', 'Choose Drugs', sort(drug_list), inline = TRUE)
+        selectizeInput('selected_drugs_list', 'Choose or Search for Drugs', choices = sort(drug_list), multiple = TRUE)
     })
     
   output$selectRange <- renderUI({

@@ -61,17 +61,19 @@ server<-function(input, output) {
 
 ########################MAIN DATASET FROM UPLOAD############################    
   Dataset <- reactive({
+    
     #### returns blank data.frame() if there is no data yet. prevents errors.
     if (is.null(input$file)) {
       return(data.frame())
     }
     
+    ### rows in input$file aree the different data items.  this iteratively binds them into Dataset
     Dataset <- data.frame()
-    
     for(n in 1:nrow(input$file)){
       Dataset <- Dataset %>% bind_rows(read.xlsx(input$file[[n, 'datapath']]))
     }
     
+    ### Data munging 
     Dataset <- Dataset %>%
               mutate(Week = gsub('Week ', '', Week)) %>%          ##make Week numeric
               separate(Week, c('Week', 'Year'), ', ') %>%         ##separate Week/Year into different columns 
@@ -81,6 +83,9 @@ server<-function(input, output) {
               mutate(Month = month(Date)) %>% 
               mutate(Group = NA) %>%
               as.data.frame()
+    
+    
+    ##this allows Dataset() [the name of this function] to always return the reactive DF built from UI input 
     return(Dataset)
   })  
   

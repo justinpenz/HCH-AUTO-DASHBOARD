@@ -39,7 +39,7 @@ ui<- fluidPage(
             dateRangeInput('dateRange2',
             label = 'Select Comparator Timeframe 2',
             start = Sys.Date() - 2, end = Sys.Date() + 2, separator = 'to')),
-          mainPanel(tableOutput("table2"),
+          mainPanel(dataTableOutput("table10"),
                     plotOutput('summaryTable'),
           width = 6
          ))
@@ -109,10 +109,13 @@ server<-function(input, output) {
   values <- reactiveValues(df_data = NULL)   #INITIALIZE GROUP. VALUES IS THE GROUP DF
 
   observeEvent(input$pushgrp, {              #IF MAKE GROUP BUTTON IS PUSHED, ADD CURRENT SELECTED DRUGS AS grouped item to values 
-    temp = list(input$selected_drugs_list)
-    names(temp) <- eval(input$group_name)
-    values$df_data <- c(values$df_data,temp)
-
+    pushID = input$pushgrp
+    grp_name <- eval(input$group_name)
+    drugs <- input$selected_drugs_list 
+    
+    values$df_data <- data.frame(drugs, pushID)
+    
+    
   })
   
   observeEvent(input$pushsingle, {
@@ -122,7 +125,7 @@ server<-function(input, output) {
 
   })
 
-output$table10 <- renderDataTable({as.data.frame(values$df_data)})   #kill this maybe for final development version? 
+output$table10 <- renderDataTable({values$df_data})   #kill this maybe for final development version? 
 
 
 #################this makes the main output with totals and monthly per group/drug#####################################

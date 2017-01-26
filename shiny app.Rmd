@@ -93,6 +93,7 @@ server<-function(input, output) {
   
   output$selectDrugs <- renderUI({
         input$pushgrp 
+        input$pushsingle
         drug_list = unique(Dataset()$Generic.Name)
         selectizeInput('selected_drugs_list', 'Choose or Search for Drugs', choices = sort(drug_list), multiple = TRUE)
     })
@@ -113,18 +114,22 @@ server<-function(input, output) {
     grp_name <- eval(input$group_name)
     drugs <- input$selected_drugs_list 
     
-    values$df_data <- data.frame(drugs, pushID)
+    values$df_data <- bind_rows(values$df_data, data.frame(drug = as.vector(drugs), push_no = as.vector(pushID), grouping = as.vector(grp_name)))
     
     
   })
   
   observeEvent(input$pushsingle, {
-    temp = as.list(input$selected_drugs_list)
-    names(temp) <- c(input$selected_drugs_list)
-    values$df_data <- c(values$df_data,temp)
+    pushID = input$pushsingle
+    drugs <- input$selected_drugs_list 
+    
+    values$df_data <- bind_rows(values$df_data, data.frame(drug = as.vector(drugs), push_no = as.vector(pushID), grouping = as.vector(drugs)))
 
   })
 
+  
+  
+  
 output$table10 <- renderDataTable({values$df_data})   #kill this maybe for final development version? 
 
 

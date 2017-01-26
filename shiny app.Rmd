@@ -39,7 +39,7 @@ ui<- fluidPage(
             dateRangeInput('dateRange2',
             label = 'Select Comparator Timeframe 2',
             start = Sys.Date() - 2, end = Sys.Date() + 2, separator = 'to')),
-          mainPanel(dataTableOutput("table10"),
+          mainPanel(dataTableOutput("table2"),
                     plotOutput('summaryTable'),
           width = 6
          ))
@@ -114,7 +114,7 @@ server<-function(input, output) {
     grp_name <- eval(input$group_name)
     drugs <- input$selected_drugs_list 
     
-    values$df_data <- bind_rows(values$df_data, data.frame(drug = as.vector(drugs), push_no = as.vector(pushID), grouping = as.vector(grp_name)))
+    values$df_data <- bind_rows(values$df_data, data.frame(Generic.Name = as.vector(drugs), push_no = as.vector(pushID), grouping = as.vector(grp_name)))
     
     
   })
@@ -123,7 +123,7 @@ server<-function(input, output) {
     pushID = input$pushsingle
     drugs <- input$selected_drugs_list 
     
-    values$df_data <- bind_rows(values$df_data, data.frame(drug = as.vector(drugs), push_no = as.vector(pushID), grouping = as.vector(drugs)))
+    values$df_data <- bind_rows(values$df_data, data.frame(Generic.Name = as.vector(drugs), push_no = as.vector(pushID), grouping = as.vector(drugs)))
 
   })
 
@@ -134,18 +134,14 @@ output$table10 <- renderDataTable({values$df_data})   #kill this maybe for final
 
 
 #################this makes the main output with totals and monthly per group/drug#####################################
-  output$table2 <- renderTable({
+  output$table2 <- renderDataTable({
 
         df <- Dataset()
-              ##below assigns each group/single in a named list as a item in df$group.
-        for(n in names(values$df_data)){
-               group_name = n
-               group_drugs = values$df_data[[n]]
-               df$Group = ifelse(df$Generic.Name %in% group_drugs, n, df$Group)
-        }
+        group <- values$df_data
         
-
-            daterange0 <- as.list(unlist(strsplit(as.character(input$dateRange0), 'to')))
+        df <- left_join(df, group, by = 'Generic.Name', copy = T)
+        
+        daterange0 <- as.list(unlist(strsplit(as.character(input$dateRange0), 'to')))
             names(daterange0) <- c('min', 'max')
             
             daterange1 <- as.list(unlist(strsplit(as.character(input$dateRange1), 'to')))
@@ -157,29 +153,31 @@ output$table10 <- renderDataTable({values$df_data})   #kill this maybe for final
             
           working_df <- df %>% 
             filter(ymd(Date) >= ymd(daterange0$min) & ymd(Date) < ymd(daterange0$max)) %>%
-                filter(!is.na(Group))
+                filter(!is.na(grouping))
           
           
             totals_by_month <- working_df %>% 
-              group_by(Group, Month) %>% 
+              group_by(grouping, Month) %>% 
               summarize(sum = sum(Total.Spend, na.rm = T))
         
             totals_by_Timeframe1 <- working_df %>% 
               filter(ymd(Date) >= ymd(daterange1$min) & ymd(Date) < ymd(daterange1$max))%>%
-              group_by(Group) %>% summarize(Timeframe1 = sum(Total.Spend, na.rm = T))
+              group_by(grouping) %>% summarize(Timeframe1 = sum(Total.Spend, na.rm = T))
             
             totals_by_Timeframe2 <- working_df %>% 
               filter(ymd(Date) >= ymd(daterange2$min) & ymd(Date) < ymd(daterange2$max))%>%
-              group_by(Group) %>% summarize(Timeframe2 = sum(Total.Spend, na.rm = T))
+              group_by(grouping) %>% summarize(Timeframe2 = sum(Total.Spend, na.rm = T))
             
-             table <- full_join(totals_by_month, totals_by_Timeframe1, by = "Group") %>% 
-              full_join(totals_by_Timeframe2, by ='Group') %>% 
+             table <- full_join(totals_by_month, totals_by_Timeframe1, by = "grouping") %>% 
+              full_join(totals_by_Timeframe2, by ='grouping') %>% 
                mutate(Month = month.abb[Month]) %>%
                spread(Month, sum) %>%
                mutate(Percent_Change = (Timeframe2 - Timeframe1) * 100 /Timeframe2)
            
-            table
+           table
             
+        
+       
 
   })
   
@@ -230,8 +228,73 @@ output$table10 <- renderDataTable({values$df_data})   #kill this maybe for final
   
 }
 
+shinyApp(ui = ui, server = server)
+
 ```
 
 ```{r}
 shinyApp(ui = ui, server = server)
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ ##Depreciated, new approach 
+        ##below assigns each group/single in a named list as a item in df$group.
+        #for(n in names(values$df_data)){
+        #      group_name = n
+        #       group_drugs = values$df_data[[n]]
+        #       df$Group = ifelse(df$Generic.Name %in% group_drugs, n, df$Group)
+        #}
+        
+            #df <- left_join(df, group, by = 'Generic.Name', copy = T)
+        
+            #df
+            
+            daterange0 <- as.list(unlist(strsplit(as.character(input$dateRange0), 'to')))
+            names(daterange0) <- c('min', 'max')
+            
+            daterange1 <- as.list(unlist(strsplit(as.character(input$dateRange1), 'to')))
+            names(daterange1) <- c('min', 'max')
+            
+            daterange2 <- as.list(unlist(strsplit(as.character(input$dateRange2), 'to')))
+            names(daterange2) <- c('min', 'max')
+            
+            
+          working_df <- df %>% 
+            filter(ymd(Date) >= ymd(daterange0$min) & ymd(Date) < ymd(daterange0$max)) %>%
+                filter(!is.na(Group))
+          
+          
+            totals_by_month <- working_df %>% 
+              group_by(Group, Month) %>% 
+              summarize(sum = sum(Total.Spend, na.rm = T))
+        
+            totals_by_Timeframe1 <- working_df %>% 
+              filter(ymd(Date) >= ymd(daterange1$min) & ymd(Date) < ymd(daterange1$max))%>%
+              group_by(Group) %>% summarize(Timeframe1 = sum(Total.Spend, na.rm = T))
+            
+            totals_by_Timeframe2 <- working_df %>% 
+              filter(ymd(Date) >= ymd(daterange2$min) & ymd(Date) < ymd(daterange2$max))%>%
+              group_by(Group) %>% summarize(Timeframe2 = sum(Total.Spend, na.rm = T))
+            
+             table <- full_join(totals_by_month, totals_by_Timeframe1, by = "Group") %>% 
+              full_join(totals_by_Timeframe2, by ='Group') %>% 
+               mutate(Month = month.abb[Month]) %>%
+               spread(Month, sum) %>%
+               mutate(Percent_Change = (Timeframe2 - Timeframe1) * 100 /Timeframe2)
+           
+           # table
+            

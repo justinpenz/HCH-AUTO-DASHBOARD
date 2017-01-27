@@ -26,7 +26,7 @@ ui<- fluidPage(
           sidebarPanel(
             fileInput('file', label = h3("File input"), multiple = T),
             uiOutput('selectDrugs'),
-            textInput('group_name', 'Group Name - No Spaces', 'Add Group Name Here'),
+            uiOutput('group_text'),
             actionButton('pushgrp',"PUSH TO ADD TO GROUP"),
             actionButton('pushsingle',"PUSH TO ADD ALL AS SINGLE"),
             uiOutput('selectRange'),
@@ -39,7 +39,7 @@ ui<- fluidPage(
             dateRangeInput('dateRange2',
             label = 'Select Comparator Timeframe 2',
             start = Sys.Date() - 2, end = Sys.Date() + 2, separator = 'to')),
-          mainPanel(tableOutput("table2"),
+          mainPanel(dataTableOutput("table2"),
                     plotOutput('summaryTable'),
           width = 6
          ))
@@ -61,17 +61,19 @@ server<-function(input, output) {
 
 ########################MAIN DATASET FROM UPLOAD############################    
   Dataset <- reactive({
+    
     #### returns blank data.frame() if there is no data yet. prevents errors.
     if (is.null(input$file)) {
       return(data.frame())
     }
     
+    ### rows in input$file aree the different data items.  this iteratively binds them into Dataset
     Dataset <- data.frame()
-    
     for(n in 1:nrow(input$file)){
       Dataset <- Dataset %>% bind_rows(read.xlsx(input$file[[n, 'datapath']]))
     }
     
+    ### Data munging 
     Dataset <- Dataset %>%
               mutate(Week = gsub('Week ', '', Week)) %>%          ##make Week numeric
               separate(Week, c('Week', 'Year'), ', ') %>%         ##separate Week/Year into different columns 
@@ -81,6 +83,9 @@ server<-function(input, output) {
               mutate(Month = month(Date)) %>% 
               mutate(Group = NA) %>%
               as.data.frame()
+    
+    
+    ##this allows Dataset() [the name of this function] to always return the reactive DF built from UI input 
     return(Dataset)
   })  
   
@@ -88,6 +93,7 @@ server<-function(input, output) {
   
   output$selectDrugs <- renderUI({
         input$pushgrp 
+        input$pushsingle
         drug_list = unique(Dataset()$Generic.Name)
         selectizeInput('selected_drugs_list', 'Choose or Search for Drugs', choices = sort(drug_list), multiple = TRUE)
     })
@@ -99,40 +105,46 @@ server<-function(input, output) {
         p(string)
     })
   
+  output$group_text <- renderUI({
+        input$pushgrp 
+        input$pushsingle
+        textInput('group_name', 'Group Name - No Spaces', '')
+  })
+  
+    
   ###########################BUILDING OF GROUPINGS OF DRUGS######################
   
   values <- reactiveValues(df_data = NULL)   #INITIALIZE GROUP. VALUES IS THE GROUP DF
 
   observeEvent(input$pushgrp, {              #IF MAKE GROUP BUTTON IS PUSHED, ADD CURRENT SELECTED DRUGS AS grouped item to values 
-    temp = list(input$selected_drugs_list)
-    names(temp) <- eval(input$group_name)
-    values$df_data <- c(values$df_data,temp)
-
+    pushID =          input$pushgrp
+    grp_name <-       eval(input$group_name)
+    drugs <-          input$selected_drugs_list 
+    values$df_data <- bind_rows(values$df_data, data.frame(Generic.Name = as.vector(drugs), push_no = as.vector(pushID), grouping = as.vector(grp_name)))
+    values$df_data <- bind_rows(values$df_data, data.frame(Generic.Name = as.vector(drugs), push_no = as.vector(pushID), grouping = as.vector(drugs)))
   })
   
+  
+  
   observeEvent(input$pushsingle, {
-    temp = as.list(input$selected_drugs_list)
-    names(temp) <- c(input$selected_drugs_list)
-    values$df_data <- c(values$df_data,temp)
-
+    pushID = input$pushsingle + 1000
+    drugs <- input$selected_drugs_list 
+    
+    values$df_data <- bind_rows(values$df_data, data.frame(Generic.Name = as.vector(drugs), push_no = as.vector(pushID), grouping = as.vector(drugs)))
   })
 
-output$table10 <- renderDataTable({as.data.frame(values$df_data)})   #kill this maybe for final development version? 
+output$table10 <- renderDataTable({values$df_data})   #kill this maybe for final development version? 
 
 
 #################this makes the main output with totals and monthly per group/drug#####################################
-  output$table2 <- renderTable({
+  output$table2 <- renderDataTable({
 
         df <- Dataset()
-              ##below assigns each group/single in a named list as a item in df$group.
-        for(n in names(values$df_data)){
-               group_name = n
-               group_drugs = values$df_data[[n]]
-               df$Group = ifelse(df$Generic.Name %in% group_drugs, n, df$Group)
-        }
+        group <- values$df_data
         
-
-            daterange0 <- as.list(unlist(strsplit(as.character(input$dateRange0), 'to')))
+        df <- left_join(df, group, by = 'Generic.Name', copy = T)
+        
+        daterange0 <- as.list(unlist(strsplit(as.character(input$dateRange0), 'to')))
             names(daterange0) <- c('min', 'max')
             
             daterange1 <- as.list(unlist(strsplit(as.character(input$dateRange1), 'to')))
@@ -144,29 +156,32 @@ output$table10 <- renderDataTable({as.data.frame(values$df_data)})   #kill this 
             
           working_df <- df %>% 
             filter(ymd(Date) >= ymd(daterange0$min) & ymd(Date) < ymd(daterange0$max)) %>%
-                filter(!is.na(Group))
+                filter(!is.na(grouping))
           
           
             totals_by_month <- working_df %>% 
-              group_by(Group, Month) %>% 
-              summarize(sum = sum(Total.Spend, na.rm = T))
+              group_by(grouping, Month) %>% 
+              summarize(sum = sum(Total.Spend, na.rm = T), clickID = first(push_no))
         
             totals_by_Timeframe1 <- working_df %>% 
               filter(ymd(Date) >= ymd(daterange1$min) & ymd(Date) < ymd(daterange1$max))%>%
-              group_by(Group) %>% summarize(Timeframe1 = sum(Total.Spend, na.rm = T))
+              group_by(grouping) %>% summarize(Timeframe1 = sum(Total.Spend, na.rm = T), clickID = first(push_no))
             
             totals_by_Timeframe2 <- working_df %>% 
               filter(ymd(Date) >= ymd(daterange2$min) & ymd(Date) < ymd(daterange2$max))%>%
-              group_by(Group) %>% summarize(Timeframe2 = sum(Total.Spend, na.rm = T))
+              group_by(grouping) %>% summarize(Timeframe2 = sum(Total.Spend, na.rm = T), clickID = first(push_no))
             
-             table <- full_join(totals_by_month, totals_by_Timeframe1, by = "Group") %>% 
-              full_join(totals_by_Timeframe2, by ='Group') %>% 
+             table <- full_join(totals_by_month, totals_by_Timeframe1, by =c('grouping', 'clickID')) %>% 
+              full_join(totals_by_Timeframe2, by =c('grouping', 'clickID')) %>% 
                mutate(Month = month.abb[Month]) %>%
                spread(Month, sum) %>%
-               mutate(Percent_Change = (Timeframe2 - Timeframe1) * 100 /Timeframe2)
+               mutate(Percent_Change = (Timeframe2 - Timeframe1) * 100 /Timeframe2) %>% 
+               arrange(clickID, -Timeframe2)
            
-            table
+           table
             
+        
+       
 
   })
   
@@ -217,8 +232,6 @@ output$table10 <- renderDataTable({as.data.frame(values$df_data)})   #kill this 
   
 }
 
-```
-
-```{r}
 shinyApp(ui = ui, server = server)
+
 ```

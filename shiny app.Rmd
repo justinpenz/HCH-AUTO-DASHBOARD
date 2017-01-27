@@ -172,7 +172,7 @@ output$table10 <- renderDataTable({values$df_data})   #kill this maybe for final
                mutate(Month = month.abb[Month]) %>%
                spread(Month, sum) %>%
                mutate(Percent_Change = (Timeframe2 - Timeframe1) * 100 /Timeframe2) %>% 
-               arrange(-Timeframe2, clickID)
+               arrange(clickID, -Timeframe2)
            
            table
             

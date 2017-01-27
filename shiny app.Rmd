@@ -110,21 +110,20 @@ server<-function(input, output) {
   values <- reactiveValues(df_data = NULL)   #INITIALIZE GROUP. VALUES IS THE GROUP DF
 
   observeEvent(input$pushgrp, {              #IF MAKE GROUP BUTTON IS PUSHED, ADD CURRENT SELECTED DRUGS AS grouped item to values 
-    pushID = input$pushgrp
-    grp_name <- eval(input$group_name)
-    drugs <- input$selected_drugs_list 
-    
+    pushID =          input$pushgrp
+    grp_name <-       eval(input$group_name)
+    drugs <-          input$selected_drugs_list 
     values$df_data <- bind_rows(values$df_data, data.frame(Generic.Name = as.vector(drugs), push_no = as.vector(pushID), grouping = as.vector(grp_name)))
-    
-    
+    values$df_data <- bind_rows(values$df_data, data.frame(Generic.Name = as.vector(drugs), push_no = as.vector(pushID), grouping = as.vector(drugs)))
   })
   
+  
+  
   observeEvent(input$pushsingle, {
-    pushID = input$pushsingle
+    pushID = input$pushsingle + 1000
     drugs <- input$selected_drugs_list 
     
     values$df_data <- bind_rows(values$df_data, data.frame(Generic.Name = as.vector(drugs), push_no = as.vector(pushID), grouping = as.vector(drugs)))
-
   })
 
   
@@ -158,21 +157,22 @@ output$table10 <- renderDataTable({values$df_data})   #kill this maybe for final
           
             totals_by_month <- working_df %>% 
               group_by(grouping, Month) %>% 
-              summarize(sum = sum(Total.Spend, na.rm = T))
+              summarize(sum = sum(Total.Spend, na.rm = T), clickID = first(push_no))
         
             totals_by_Timeframe1 <- working_df %>% 
               filter(ymd(Date) >= ymd(daterange1$min) & ymd(Date) < ymd(daterange1$max))%>%
-              group_by(grouping) %>% summarize(Timeframe1 = sum(Total.Spend, na.rm = T))
+              group_by(grouping) %>% summarize(Timeframe1 = sum(Total.Spend, na.rm = T), clickID = first(push_no))
             
             totals_by_Timeframe2 <- working_df %>% 
               filter(ymd(Date) >= ymd(daterange2$min) & ymd(Date) < ymd(daterange2$max))%>%
-              group_by(grouping) %>% summarize(Timeframe2 = sum(Total.Spend, na.rm = T))
+              group_by(grouping) %>% summarize(Timeframe2 = sum(Total.Spend, na.rm = T), clickID = first(push_no))
             
-             table <- full_join(totals_by_month, totals_by_Timeframe1, by = "grouping") %>% 
-              full_join(totals_by_Timeframe2, by ='grouping') %>% 
+             table <- full_join(totals_by_month, totals_by_Timeframe1, by =c('grouping', 'clickID')) %>% 
+              full_join(totals_by_Timeframe2, by =c('grouping', 'clickID')) %>% 
                mutate(Month = month.abb[Month]) %>%
                spread(Month, sum) %>%
-               mutate(Percent_Change = (Timeframe2 - Timeframe1) * 100 /Timeframe2)
+               mutate(Percent_Change = (Timeframe2 - Timeframe1) * 100 /Timeframe2) %>% 
+               arrange(-Timeframe2, clickID)
            
            table
             
